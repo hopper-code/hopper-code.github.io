@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hopper - Pluto</title>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: black;
+}
+
+canvas {
+  display: block;
+}
+
+.hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-family: Arial;
+  background: rgba(0,0,0,0.7);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.win {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 50px;
+  color: white;
+  display: none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="hud">Score: <span id="score">0</span></div>
+<div id="win" class="win">PLUTO COMPLETE 🌑</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const scoreText = document.getElementById("score");
+const winText = document.getElementById("win");
+
+// PLAYER
+const player = {
+  x: 200,
+  y: 0,
+  w: 60,
+  h: 60,
+  vx: 0,
+  vy: 0,
+  grounded: false
+};
+
+// 🧊 mild slipperiness (NOT exponential)
+const gravity = 0.65;
+const jumpPower = -12;
+const friction = 0.92;
+
+// ISLAND
+const island = {
+  x: canvas.width / 2 - 100,
+  y: canvas.height - 140,
+  w: 200,
+  h: 20
+};
+
+const lavaHeight = 70;
+
+let platforms = [];
+let scrollY = 0;
+
+let score = 0;
+let highestRow = 0;
+let gameWon = false;
+
+// INPUT
+const keys = {};
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+// GENERATE
+function generatePlatforms() {
+  platforms = [];
+
+  let y = island.y - 130;
+  let safeX = canvas.width / 2;
+
+  for (let i = 0; i < 75; i++) {
+
+    safeX += (Math.random() * 180 - 90);
+    safeX = Math.max(80, Math.min(canvas.width - 80, safeX));
+
+    platforms.push({
+      x: safeX - 45,
+      y,
+      w: 90,
+      h: 18
+    });
+
+    if (Math.random() < 0.4) {
+      platforms.push({
+        x: Math.random() * (canvas.width - 90),
+        y,
+        w: 80,
+        h: 18
+      });
+    }
+
+    y -= 115;
+  }
+}
+
+generatePlatforms();
+
+// RESET
+function resetPlayer() {
+  if (gameWon) return;
+
+  player.x = island.x + 70;
+  player.y = island.y - player.h;
+  player.vx = 0;
+  player.vy = 0;
+  highestRow = 0;
+  score = 0;
+  scoreText.innerText = 0;
+}
+
+// UPDATE
+function update() {
+  if (gameWon) return;
+
+  // movement
+  if (keys["a"] || keys["arrowleft"]) player.vx -= 0.7;
+  if (keys["d"] || keys["arrowright"]) player.vx += 0.7;
+
+  player.vx *= friction;
+
+  // jump
+  if ((keys["w"] || keys["arrowup"] || keys[" "]) && player.grounded) {
+    player.vy = jumpPower;
+    player.grounded = false;
+  }
+
+  player.vy += gravity;
+
+  player.x += player.vx;
+  player.y += player.vy;
+
+  player.grounded = false;
+
+  // island collision
+  if (
+    player.x < island.x + island.w &&
+    player.x + player.w > island.x &&
+    player.y + player.h > island.y &&
+    player.y + player.h < island.y + island.h + 10 &&
+    player.vy >= 0
+  ) {
+    player.y = island.y - player.h;
+    player.vy = 0;
+    player.grounded = true;
+  }
+
+  // platforms
+  for (let p of platforms) {
+    if (
+      player.x < p.x + p.w &&
+      player.x + player.w > p.x &&
+      player.y + player.h > p.y &&
+      player.y + player.h < p.y + p.h + 10 &&
+      player.vy >= 0
+    ) {
+      player.y = p.y - player.h;
+      player.vy = 0;
+      player.grounded = true;
+
+      let row = Math.floor((island.y - p.y) / 115);
+      if (row > highestRow) {
+        highestRow = row;
+        score = highestRow * 2;
+        scoreText.innerText = score;
+      }
+    }
+  }
+
+  scrollY = player.y - 200;
+
+  // win FIRST
+  if (score >= 100 && !gameWon) {
+    gameWon = true;
+    winText.style.display = "block";
+
+    setTimeout(() => {
+      window.location.href = "asteroid_belt.html";
+    }, 2000);
+    return;
+  }
+
+  // lava
+  if (player.y + player.h > canvas.height - lavaHeight) {
+    resetPlayer();
+  }
+
+  // walls
+  if (player.x < 0 || player.x + player.w > canvas.width) {
+    resetPlayer();
+  }
+}
+
+// 👁 VISIBILITY SYSTEM (1 visible, 2 invisible, 3 visible, 4 invisible)
+function isVisible() {
+  let t = Math.floor(Date.now() / 1000) % 4;
+  return (t === 0 || t === 2);
+}
+
+// 🌌 background (subtle flicker)
+let t = 0;
+function drawBackground() {
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let i = 0; i < 40; i++) {
+    let x = (Math.sin(t + i) * 0.5 + 0.5) * canvas.width;
+    let y = (Math.cos(t * 0.6 + i) * 0.5 + 0.5) * canvas.height;
+
+    ctx.fillStyle = `rgba(120, 120, 255, 0.12)`;
+    ctx.beginPath();
+    ctx.arc(x, y, 2 + Math.sin(t + i), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  t += 0.01;
+}
+
+// DRAW
+function draw() {
+  drawBackground();
+
+  const visible = isVisible();
+
+  // platforms
+  ctx.fillStyle = visible ? "#666" : "#000";
+  for (let p of platforms) {
+    ctx.fillRect(p.x, p.y - scrollY, p.w, p.h);
+  }
+
+  // island
+  ctx.fillStyle = visible ? "#14532d" : "#000";
+  ctx.fillRect(island.x, island.y - scrollY, island.w, island.h);
+
+  // player
+  ctx.fillStyle = visible ? "#1e3a8a" : "#000";
+  ctx.fillRect(player.x, player.y - scrollY, player.w, player.h);
+
+  // lava (always faint visible)
+  ctx.fillStyle = "rgba(255,0,0,0.4)";
+  ctx.fillRect(0, canvas.height - lavaHeight, canvas.width, lavaHeight);
+}
+
+// LOOP
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+resetPlayer();
+loop();
+
+// RESIZE
+window.addEventListener("resize", () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  island.x = canvas.width / 2 - 100;
+  island.y = canvas.height - 140;
+});
+</script>
+
+</body>
+</html>
