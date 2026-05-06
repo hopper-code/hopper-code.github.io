@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hopper - Mars</title>
+
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #1f2937;
+  }
+
+  canvas {
+    display: block;
+  }
+
+  .hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-family: Arial;
+    background: rgba(255,255,255,0.85);
+    padding: 6px 10px;
+    border-radius: 8px;
+  }
+
+  .win {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 48px;
+    color: white;
+    font-family: Arial;
+    display: none;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="hud">Score: <span id="score">0</span></div>
+<div id="win" class="win">MARS COMPLETE 🔴</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const scoreText = document.getElementById("score");
+const winText = document.getElementById("win");
+
+// PLAYER
+const player = {
+  x: 100,
+  y: 0,
+  w: 60,
+  h: 60,
+  vx: 0,
+  vy: 0,
+  grounded: false
+};
+
+// Mars physics
+const gravity = 0.65;
+const jumpPower = -12;
+const drift = 0.2;
+
+// START ISLAND
+const island = {
+  x: canvas.width / 2 - 100,
+  y: canvas.height - 140,
+  w: 200,
+  h: 20
+};
+
+const lavaHeight = 70;
+
+let platforms = [];
+let scrollY = 0;
+
+let score = 0;
+let highestRow = 0;
+let gameWon = false;
+
+const keys = {};
+
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+// ✅ SAME GEN, JUST SMALLER PLATFORMS
+function generatePlatforms() {
+  platforms = [];
+
+  let y = island.y - 130;
+  let rows = 75;
+
+  let safeX = canvas.width / 2;
+
+  for (let i = 0; i < rows; i++) {
+
+    safeX += (Math.random() * 180 - 90);
+    safeX = Math.max(80, Math.min(canvas.width - 80, safeX));
+
+    // main platform (smaller)
+    platforms.push({
+      x: safeX - 45,
+      y: y,
+      w: 90,
+      h: 18
+    });
+
+    // optional platform (smaller)
+    if (Math.random() < 0.4) {
+      platforms.push({
+        x: Math.random() * (canvas.width - 90),
+        y: y,
+        w: 80,
+        h: 18
+      });
+    }
+
+    y -= 115;
+  }
+}
+
+generatePlatforms();
+
+function resetPlayer() {
+  player.x = island.x + 70;
+  player.y = island.y - player.h;
+  player.vx = 0;
+  player.vy = 0;
+  highestRow = 0;
+  score = 0;
+  scoreText.innerText = 0;
+}
+
+function update() {
+  if (gameWon) return;
+
+  if (keys["a"] || keys["arrowleft"]) player.vx = -5;
+  else if (keys["d"] || keys["arrowright"]) player.vx = 5;
+  else player.vx *= 0.85;
+
+  if ((keys["w"] || keys["arrowup"] || keys[" "]) && player.grounded) {
+    player.vy = jumpPower;
+    player.grounded = false;
+  }
+
+  player.vy += gravity;
+  player.vx += drift;
+
+  player.x += player.vx;
+  player.y += player.vy;
+
+  player.grounded = false;
+
+  // island collision
+  if (
+    player.x < island.x + island.w &&
+    player.x + player.w > island.x &&
+    player.y + player.h > island.y &&
+    player.y + player.h < island.y + island.h + 10 &&
+    player.vy >= 0
+  ) {
+    player.y = island.y - player.h;
+    player.vy = 0;
+    player.grounded = true;
+  }
+
+  // platform collision
+  for (let p of platforms) {
+    if (
+      player.x < p.x + p.w &&
+      player.x + player.w > p.x &&
+      player.y + player.h > p.y &&
+      player.y + player.h < p.y + p.h + 10 &&
+      player.vy >= 0
+    ) {
+      player.y = p.y - player.h;
+      player.vy = 0;
+      player.grounded = true;
+
+      let row = Math.floor((island.y - p.y) / 115);
+
+      if (row > highestRow) {
+        highestRow = row;
+        score = highestRow * 2;
+        scoreText.innerText = score;
+      }
+    }
+  }
+
+  scrollY = player.y - 200;
+
+  if (player.y + player.h > canvas.height - lavaHeight) {
+    resetPlayer();
+  }
+
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.w > canvas.width)
+    player.x = canvas.width - player.w;
+
+  if (score >= 100 && !gameWon) {
+    gameWon = true;
+    winText.style.display = "block";
+
+    setTimeout(() => {
+      window.location.href = "jupiter.html";
+    }, 2000);
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#7f1d1d";
+  for (let p of platforms) {
+    ctx.fillRect(p.x, p.y - scrollY, p.w, p.h);
+  }
+
+  ctx.fillStyle = "#14532d";
+  ctx.fillRect(island.x, island.y - scrollY, island.w, island.h);
+
+  ctx.fillStyle = "red";
+  ctx.fillRect(0, canvas.height - lavaHeight, canvas.width, lavaHeight);
+
+  ctx.fillStyle = "#1e3a8a";
+  ctx.fillRect(player.x, player.y - scrollY, player.w, player.h);
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+resetPlayer();
+loop();
+
+window.addEventListener("resize", () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  island.x = canvas.width / 2 - 100;
+  island.y = canvas.height - 140;
+});
+</script>
+
+</body>
+</html>
