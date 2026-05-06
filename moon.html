@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hopper - Moon</title>
+
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0b1020;
+  }
+
+  canvas {
+    display: block;
+  }
+
+  .hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-family: Arial;
+    background: rgba(255,255,255,0.85);
+    padding: 6px 10px;
+    border-radius: 8px;
+  }
+
+  .win {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 48px;
+    color: white;
+    font-family: Arial;
+    display: none;
+    text-align: center;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="hud">Score: <span id="score">0</span></div>
+<div id="win" class="win">MOON COMPLETE 🌙</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const scoreText = document.getElementById("score");
+const winText = document.getElementById("win");
+
+// ---------------- PLAYER ----------------
+const player = {
+  x: 100,
+  y: 0,
+  w: 60,
+  h: 60,
+  vx: 0,
+  vy: 0,
+  grounded: false
+};
+
+// 🌙 Moon physics (harder but fair)
+const gravity = 0.5;
+const jumpPower = -11.8;
+
+// ---------------- WORLD ----------------
+const island = {
+  x: canvas.width / 2 - 100,
+  y: canvas.height - 140,
+  w: 200,
+  h: 20
+};
+
+const lavaHeight = 60;
+
+let platforms = [];
+let scrollY = 0;
+
+let score = 0;
+let highestRow = 0;
+let gameWon = false;
+
+// ---------------- INPUT ----------------
+const keys = {};
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+// ---------------- SAFE GENERATION ----------------
+function generatePlatforms() {
+  platforms = [];
+
+  let y = island.y - 120;
+
+  const rows = 70;
+  const maxStep = 150; // guaranteed reachable horizontal step
+
+  let safeX = canvas.width / 2;
+
+  for (let i = 0; i < rows; i++) {
+
+    // move safe path gradually (controlled randomness)
+    safeX += (Math.random() * maxStep * 2 - maxStep);
+
+    // keep inside screen bounds
+    safeX = Math.max(80, Math.min(canvas.width - 80, safeX));
+
+    // MAIN guaranteed platform (THIS is the only required path)
+    platforms.push({
+      x: safeX - 60,
+      y: y,
+      w: 120,
+      h: 20,
+      safe: true
+    });
+
+    // optional extra platform (decoration / risk route)
+    if (Math.random() < 0.5) {
+      platforms.push({
+        x: Math.random() * (canvas.width - 120),
+        y: y,
+        w: 110,
+        h: 20,
+        safe: false
+      });
+    }
+
+    y -= 110;
+  }
+}
+
+generatePlatforms();
+
+// ---------------- RESET ----------------
+function resetPlayer() {
+  player.x = island.x + 70;
+  player.y = island.y - player.h;
+  player.vx = 0;
+  player.vy = 0;
+  highestRow = 0;
+  score = 0;
+  scoreText.innerText = 0;
+}
+
+// ---------------- UPDATE ----------------
+function update() {
+  if (gameWon) return;
+
+  // movement
+  if (keys["a"] || keys["arrowleft"]) player.vx = -5;
+  else if (keys["d"] || keys["arrowright"]) player.vx = 5;
+  else player.vx *= 0.85;
+
+  // jump
+  if ((keys["w"] || keys["arrowup"] || keys[" "]) && player.grounded) {
+    player.vy = jumpPower;
+    player.grounded = false;
+  }
+
+  player.vy += gravity;
+
+  player.x += player.vx;
+  player.y += player.vy;
+
+  player.grounded = false;
+
+  // island collision
+  if (
+    player.x < island.x + island.w &&
+    player.x + player.w > island.x &&
+    player.y + player.h > island.y &&
+    player.y + player.h < island.y + island.h + 10 &&
+    player.vy >= 0
+  ) {
+    player.y = island.y - player.h;
+    player.vy = 0;
+    player.grounded = true;
+  }
+
+  // platform collision + SCORE (+2 per row ONLY)
+  for (let p of platforms) {
+    if (
+      player.x < p.x + p.w &&
+      player.x + player.w > p.x &&
+      player.y + player.h > p.y &&
+      player.y + player.h < p.y + p.h + 10 &&
+      player.vy >= 0
+    ) {
+      player.y = p.y - player.h;
+      player.vy = 0;
+      player.grounded = true;
+
+      let row = Math.floor((island.y - p.y) / 110);
+
+      if (row > highestRow) {
+        highestRow = row;
+        score = highestRow * 2;
+        scoreText.innerText = score;
+      }
+    }
+  }
+
+  scrollY = player.y - 200;
+
+  // lava
+  if (player.y + player.h > canvas.height - lavaHeight) {
+    resetPlayer();
+  }
+
+  // bounds
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.w > canvas.width)
+    player.x = canvas.width - player.w;
+
+  // win
+  if (score >= 100 && !gameWon) {
+    gameWon = true;
+    winText.style.display = "block";
+
+    setTimeout(() => {
+      window.location.href = "mars.html";
+    }, 2000);
+  }
+}
+
+// ---------------- DRAW ----------------
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // platforms
+  ctx.fillStyle = "#374151";
+  for (let p of platforms) {
+    ctx.fillRect(p.x, p.y - scrollY, p.w, p.h);
+  }
+
+  // island
+  ctx.fillStyle = "#14532d";
+  ctx.fillRect(island.x, island.y - scrollY, island.w, island.h);
+
+  // lava
+  ctx.fillStyle = "red";
+  ctx.fillRect(0, canvas.height - lavaHeight, canvas.width, lavaHeight);
+
+  // player (blue)
+  ctx.fillStyle = "#1e3a8a";
+  ctx.fillRect(player.x, player.y - scrollY, player.w, player.h);
+}
+
+// ---------------- LOOP ----------------
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+resetPlayer();
+loop();
+
+window.addEventListener("resize", () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  island.x = canvas.width / 2 - 100;
+  island.y = canvas.height - 140;
+});
+</script>
+
+</body>
+</html>
