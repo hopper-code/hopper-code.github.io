@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hopper Shop</title>
+
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+
+  .container {
+    width: 420px;
+    background: #111827;
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .money {
+    text-align: center;
+    font-size: 22px;
+    margin-bottom: 15px;
+  }
+
+  img {
+    width: 40px;
+    vertical-align: middle;
+  }
+
+  input {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 10px;
+    border: none;
+    font-size: 16px;
+  }
+
+  button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+  }
+
+  .bet {
+    background: #22c55e;
+    color: black;
+  }
+
+  .upgrade {
+    background: #3b82f6;
+    color: white;
+  }
+
+  .log {
+    margin-top: 15px;
+    height: 140px;
+    overflow-y: auto;
+    background: #0b1220;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h1>SHOP</h1>
+
+  <div class="money">
+    <img src="coin.png" /> $<span id="money">100</span>
+  </div>
+
+  <input id="bet" type="number" placeholder="Enter bet amount" />
+  <button class="bet" onclick="bet()">BET (50/50)</button>
+
+  <button class="upgrade" onclick="upgrade()">BUY LUCK (+10% win chance) - $50</button>
+
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+let money = 100;
+let winChance = 0.5;
+let luckyBought = false;
+
+const moneyText = document.getElementById("money");
+const log = document.getElementById("log");
+
+function update() {
+  moneyText.innerText = money;
+}
+
+function addLog(text) {
+  log.innerHTML = text + "<br>" + log.innerHTML;
+}
+
+function bet() {
+  let bet = Number(document.getElementById("bet").value);
+  if (bet <= 0 || bet > money) {
+    addLog("Invalid bet!");
+    return;
+  }
+
+  money -= bet;
+
+  let roll = Math.random();
+
+  if (roll < winChance) {
+    money += bet * 2;
+    addLog("You WON $" + bet);
+  } else {
+    money += bet * 0.5;
+    addLog("You lost half: -$" + bet/2);
+  }
+
+  update();
+}
+
+function upgrade() {
+  if (luckyBought) {
+    addLog("Already bought luck!");
+    return;
+  }
+
+  if (money < 50) {
+    addLog("Not enough money!");
+    return;
+  }
+
+  money -= 50;
+  winChance += 0.1;
+  luckyBought = true;
+  addLog("Luck upgraded! Win chance increased.");
+  update();
+}
+
+update();
+</script>
+
+</body>
+</html>
