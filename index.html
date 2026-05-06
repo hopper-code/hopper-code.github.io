@@ -9,47 +9,56 @@
   body {
     margin: 0;
     font-family: Arial, sans-serif;
-  }
-
-  .screen {
     height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-direction: column;
+    background: linear-gradient(to bottom, #7dd3fc, #2563eb);
   }
 
-  .home {
-    background: linear-gradient(to bottom, #7dd3fc, #2563eb);
-    color: white;
+  .container {
+    text-align: center;
   }
 
   h1 {
-    font-size: 64px;
+    font-size: 70px;
     letter-spacing: 6px;
+    color: white;
     margin-bottom: 40px;
   }
 
-  .play-button {
-    padding: 15px 40px;
+  .btn {
+    display: block;
+    width: 200px;
+    margin: 10px auto;
+    padding: 15px;
     font-size: 20px;
+    font-weight: bold;
     border: none;
-    border-radius: 16px;
+    border-radius: 15px;
     cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+  }
+
+  .play {
     background: white;
     color: #2563eb;
-    font-weight: bold;
-    text-decoration: none;
-    display: inline-block;
+  }
+
+  .shop {
+    background: #111827;
+    color: white;
   }
 </style>
 </head>
-
 <body>
 
-<div class="screen home">
+<div class="container">
   <h1>HOPPER</h1>
-  <a class="play-button" href="frame.html">PLAY</a>
+
+  <a class="btn play" href="frame.html">PLAY</a>
+  <a class="btn shop" href="shop.html">SHOP</a>
 </div>
 
 </body>
