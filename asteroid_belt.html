@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hopper - Asteroid Belt</title>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: black;
+}
+
+canvas { display: block; }
+
+.hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-family: Arial;
+  color: white;
+  background: rgba(0,0,0,0.7);
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="hud">
+Dodged: <span id="dodged">0</span>/5 | Lives: <span id="lives">3</span>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// ---------------- PLAYER ----------------
+const player = {
+  x: 150,
+  y: 0,
+  w: 60,
+  h: 60,
+  vy: 0,
+  grounded: false
+};
+
+const gravity = 0.75;
+const jumpPower = -14;
+
+// ---------------- GROUND ----------------
+const ground = { h: 120 };
+let groundY = canvas.height - ground.h;
+
+// ---------------- GAME STATE ----------------
+let asteroids = [];
+let dodged = 0;
+let lives = 3;
+let gameWon = false;
+
+// 🛡️ INVINCIBILITY FIX (IMPORTANT)
+let invincible = false;
+
+// HUD
+const dodgedText = document.getElementById("dodged");
+const livesText = document.getElementById("lives");
+
+// INPUT
+const keys = {};
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+// ---------------- RESET ----------------
+function resetPlayer() {
+  player.y = groundY - player.h;
+  player.vy = 0;
+}
+
+// ---------------- FULL RESET ----------------
+function fullReset() {
+  dodged = 0;
+  lives = 3;
+  asteroids = [];
+  gameWon = false;
+  invincible = false;
+
+  dodgedText.innerText = dodged;
+  livesText.innerText = lives;
+
+  resetPlayer();
+}
+
+// ---------------- ASTEROIDS ----------------
+function spawnAsteroid() {
+  if (gameWon) return;
+
+  asteroids.push({
+    x: canvas.width + 50,
+    y: groundY - 200 + Math.random() * 120,
+    size: 45,
+    speed: 6 + Math.random() * 3,
+    passed: false,
+    hit: false
+  });
+}
+
+setInterval(spawnAsteroid, 900);
+
+// ---------------- UPDATE ----------------
+function update() {
+  if (gameWon) return;
+
+  // jump
+  if ((keys["w"] || keys["arrowup"] || keys[" "]) && player.grounded) {
+    player.vy = jumpPower;
+    player.grounded = false;
+  }
+
+  player.vy += gravity;
+  player.y += player.vy;
+
+  player.grounded = false;
+
+  // ground collision
+  if (player.y + player.h >= groundY) {
+    player.y = groundY - player.h;
+    player.vy = 0;
+    player.grounded = true;
+  }
+
+  // asteroids
+  for (let a of asteroids) {
+    a.x -= a.speed;
+
+    // 💥 collision (ONLY ONCE PER ASTEROID)
+    if (
+      !invincible &&
+      !a.hit &&
+      player.x < a.x + a.size &&
+      player.x + player.w > a.x &&
+      player.y < a.y + a.size &&
+      player.y + player.h > a.y
+    ) {
+      a.hit = true;
+
+      lives--;
+      livesText.innerText = lives;
+
+      if (lives <= 0) {
+        fullReset();
+        return;
+      }
+
+      // 🛡️ 1 second invincibility so you don't instantly die again
+      invincible = true;
+      setTimeout(() => invincible = false, 1000);
+
+      resetPlayer();
+    }
+
+    // score
+    if (!a.passed && a.x + a.size < player.x) {
+      a.passed = true;
+      dodged++;
+
+      dodgedText.innerText = dodged;
+
+      if (dodged >= 5) {
+        gameWon = true;
+
+        setTimeout(() => {
+          window.location.href = "supernova.html";
+        }, 1000);
+      }
+    }
+  }
+
+  asteroids = asteroids.filter(a => a.x + a.size > -100);
+}
+
+// ---------------- DRAW ----------------
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // stars
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let i = 0; i < 100; i++) {
+    ctx.fillStyle = "white";
+    ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 1, 1);
+  }
+
+  // ground
+  ctx.fillStyle = "#14532d";
+  ctx.fillRect(0, groundY, canvas.width, ground.h);
+
+  // player
+  ctx.fillStyle = invincible ? "#60a5fa" : "#3b82f6";
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+
+  // asteroids
+  ctx.fillStyle = "#9ca3af";
+  for (let a of asteroids) {
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, a.size / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ---------------- LOOP ----------------
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener("resize", () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  groundY = canvas.height - ground.h;
+  resetPlayer();
+});
+
+fullReset();
+loop();
+</script>
+
+</body>
+</html>
