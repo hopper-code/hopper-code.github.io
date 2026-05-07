@@ -8,7 +8,7 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
-// ---------------- INPUT (GLOBAL STANDARD) ----------------
+// ---------------- INPUT ----------------
 let left = false;
 let right = false;
 let up = false;
@@ -36,14 +36,23 @@ const player = {
   grounded: false
 };
 
-// ---------------- WORLD BASE ----------------
+// ---------------- WORLD ----------------
 let groundY = 0;
 let platforms = [];
+
+let score = 0;
+let highestRow = 0;
+
+// ---------------- CAMERA (NEW FIX) ----------------
+const camera = {
+  x: 0,
+  y: 0
+};
 
 const gravity = 0.75;
 const maxSpeed = 6;
 
-// ---------------- CORE UPDATE (NEVER BREAKS) ----------------
+// ---------------- CORE UPDATE ----------------
 function updateCore() {
 
   // movement
@@ -53,7 +62,6 @@ function updateCore() {
   player.vx = Math.max(-maxSpeed, Math.min(maxSpeed, player.vx));
   player.vx *= 0.88;
 
-  // jump
   if (up && player.grounded) {
     player.vy = -13;
     player.grounded = false;
@@ -66,14 +74,14 @@ function updateCore() {
 
   player.grounded = false;
 
-  // ground collision (SAFE ONLY — NO RESET)
+  // ground
   if (player.y + player.h >= groundY) {
     player.y = groundY - player.h;
     player.vy = 0;
     player.grounded = true;
   }
 
-  // platforms
+  // platforms + SCORE FIX
   for (let p of platforms) {
     if (
       player.x < p.x + p.w &&
@@ -85,24 +93,56 @@ function updateCore() {
       player.y = p.y - player.h;
       player.vy = 0;
       player.grounded = true;
+
+      let row = Math.floor((groundY - p.y) / 100);
+      if (row > highestRow) {
+        highestRow = row;
+        score = highestRow * 2;
+      }
     }
   }
+
+  // CAMERA FOLLOWS PLAYER (FIXED FEELING)
+  camera.x = player.x - canvas.width / 2;
+  camera.y = player.y - canvas.height / 2;
 }
 
-// ---------------- RENDER HELPERS ----------------
+// ---------------- DRAW HELPERS ----------------
 function drawPlayer(color = "#3b82f6") {
   ctx.fillStyle = color;
-  ctx.fillRect(player.x, player.y, player.w, player.h);
+  ctx.fillRect(
+    player.x - camera.x,
+    player.y - camera.y,
+    player.w,
+    player.h
+  );
 }
 
 function drawPlatforms(color = "#8b5cf6") {
   ctx.fillStyle = color;
   for (let p of platforms) {
-    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillRect(
+      p.x - camera.x,
+      p.y - camera.y,
+      p.w,
+      p.h
+    );
   }
 }
 
 function drawGround(color = "#111") {
   ctx.fillStyle = color;
-  ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+  ctx.fillRect(
+    0,
+    groundY - camera.y,
+    canvas.width,
+    canvas.height
+  );
+}
+
+// ---------------- HUD ----------------
+function drawHUD() {
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("Score: " + score, 20, 30);
 }
