@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Microscopic</title>
+<style>
+body { margin: 0; overflow: hidden; background: black; }
+canvas { display: block; }
+</style>
+</head>
+
+<body>
+
+<canvas id="c"></canvas>
+
+<script>
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+
+function resize(){
+  c.width = window.innerWidth;
+  c.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+// ---------------- INPUT ----------------
+let left = false;
+let right = false;
+let up = false;
+
+window.addEventListener("keydown", e => {
+  if (e.key === "a" || e.key === "ArrowLeft") left = true;
+  if (e.key === "d" || e.key === "ArrowRight") right = true;
+  if (e.key === "w" || e.key === "ArrowUp" || e.key === " ") up = true;
+});
+
+window.addEventListener("keyup", e => {
+  if (e.key === "a" || e.key === "ArrowLeft") left = false;
+  if (e.key === "d" || e.key === "ArrowRight") right = false;
+  if (e.key === "w" || e.key === "ArrowUp" || e.key === " ") up = false;
+});
+
+// ---------------- PLAYER ----------------
+const player = {
+  x: 200,
+  y: 200,
+  w: 50,
+  h: 50,
+  vx: 0,
+  vy: 0,
+  grounded: false
+};
+
+// normal physics (NOT Galaxy)
+const gravity = 0.75;
+const maxSpeed = 6;
+const jumpPower = -13;
+
+// ---------------- WORLD ----------------
+let groundY = 2000;
+let platforms = [];
+
+let score = 0;
+let highest = 0;
+let won = false;
+
+// ---------------- CAMERA ----------------
+const cam = { x: 0, y: 0 };
+
+// ---------------- MICRO SCALE GENERATION ----------------
+function generate(){
+  platforms = [];
+
+  let y = groundY - 120;
+  let x = c.width / 2;
+
+  for(let i = 0; i < 110; i++){
+
+    // MICRO CHANGE: VERY SMALL PLATFORMS
+    x += (Math.random() * 160 - 80);
+    x = Math.max(40, Math.min(c.width - 40, x));
+
+    platforms.push({
+      x,
+      y,
+      w: 45,   // 🔬 TINY PLATFORM WIDTH
+      h: 10    // 🔬 TINY PLATFORM HEIGHT
+    });
+
+    y -= 100;
+  }
+}
+
+generate();
+
+// ---------------- UPDATE ----------------
+function update(){
+
+  if(left) player.vx -= 0.8;
+  if(right) player.vx += 0.8;
+
+  player.vx = Math.max(-maxSpeed, Math.min(maxSpeed, player.vx));
+  player.vx *= 0.88;
+
+  if(up && player.grounded){
+    player.vy = jumpPower;
+    player.grounded = false;
+  }
+
+  player.vy += gravity;
+
+  player.x += player.vx;
+  player.y += player.vy;
+
+  player.grounded = false;
+
+  // ground
+  if(player.y + player.h >= groundY){
+    player.y = groundY - player.h;
+    player.vy = 0;
+    player.grounded = true;
+  }
+
+  // platform collision (tight but fair)
+  for(let p of platforms){
+    if(
+      player.x < p.x + p.w &&
+      player.x + player.w > p.x &&
+      player.y + player.h > p.y &&
+      player.y + player.h < p.y + p.h + 8 &&
+      player.vy >= 0
+    ){
+      player.y = p.y - player.h;
+      player.vy = 0;
+      player.grounded = true;
+
+      let row = Math.floor((groundY - p.y) / 100);
+      if(row > highest){
+        highest = row;
+        score = highest * 2;
+      }
+    }
+  }
+
+  // camera
+  cam.x = player.x - c.width / 2;
+  cam.y = player.y - c.height / 2;
+}
+
+// ---------------- BACKGROUND ----------------
+let t = 0;
+
+function drawBackground(){
+  t += 0.002;
+
+  ctx.fillStyle = "#050505";
+  ctx.fillRect(0,0,c.width,c.height);
+
+  // subtle micro-dust
+  for(let i = 0; i < 80; i++){
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fillRect(
+      (Math.sin(t*2+i)*c.width/2)+c.width/2,
+      (Math.cos(t*2+i)*c.height/2)+c.height/2,
+      1.5,1.5
+    );
+  }
+}
+
+// ---------------- DRAW ----------------
+function draw(){
+
+  drawBackground();
+
+  // platforms (tiny)
+  ctx.fillStyle = "#8b5cf6";
+  for(let p of platforms){
+    ctx.fillRect(p.x - cam.x, p.y - cam.y, p.w, p.h);
+  }
+
+  // player (normal size = feels huge in micro world)
+  ctx.fillStyle = "#3b82f6";
+  ctx.fillRect(player.x - cam.x, player.y - cam.y, player.w, player.h);
+
+  // ground
+  ctx.fillStyle = "#111";
+  ctx.fillRect(0, groundY - cam.y, c.width, c.height);
+
+  // HUD
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("Score: " + score, 20, 30);
+}
+
+// ---------------- WIN ----------------
+function checkWin(){
+  if(!won && score >= 100){
+    won = true;
+    setTimeout(() => {
+      window.location.href = "impossible.html";
+    }, 900);
+  }
+}
+
+// ---------------- LOOP ----------------
+function loop(){
+  update();
+  draw();
+  checkWin();
+  requestAnimationFrame(loop);
+}
+
+loop();
+
+window.addEventListener("resize", () => {
+  resize();
+  groundY = 2000;
+  generate();
+});
+</script>
+
+</body>
+</html>
