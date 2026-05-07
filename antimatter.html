@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Anti World</title>
+<style>
+body { margin: 0; overflow: hidden; background: black; }
+canvas { display: block; }
+</style>
+</head>
+
+<body>
+
+<canvas id="c"></canvas>
+
+<script src="engine.js"></script>
+
+<script>
+// ---------------- WORLD STATE ----------------
+groundY = 1800;
+
+let won = false;
+
+// ---------------- PLATFORM GENERATION ----------------
+function generate() {
+  platforms = [];
+
+  let y = groundY - 120;
+  let x = canvas.width / 2;
+
+  for (let i = 0; i < 85; i++) {
+
+    // Anti World = slightly chaotic but fair
+    x += (Math.random() * 160 - 80);
+    x = Math.max(60, Math.min(canvas.width - 60, x));
+
+    platforms.push({
+      x,
+      y,
+      w: 75,
+      h: 15
+    });
+
+    y -= 100;
+  }
+}
+
+generate();
+
+// ---------------- BACKGROUND (SAFE VISUAL ONLY) ----------------
+let t = 0;
+
+function drawBackground() {
+  t += 0.002;
+
+  const r = Math.sin(t) * 70 + 90;
+  const g = Math.sin(t + 2) * 40 + 60;
+  const b = Math.sin(t + 4) * 90 + 120;
+
+  ctx.fillStyle = `rgb(${r * 0.15}, ${g * 0.1}, ${b * 0.2})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // floating void particles
+  for (let i = 0; i < 100; i++) {
+    const px = (Math.sin(t * 3 + i) * canvas.width / 2) + canvas.width / 2;
+    const py = (Math.cos(t * 2 + i) * canvas.height / 2) + canvas.height / 2;
+
+    ctx.fillStyle = "rgba(180,120,255,0.15)";
+    ctx.fillRect(px, py, 2, 2);
+  }
+
+  // vignette
+  const grad = ctx.createRadialGradient(
+    canvas.width/2, canvas.height/2, 50,
+    canvas.width/2, canvas.height/2, canvas.width
+  );
+
+  grad.addColorStop(0, "rgba(0,0,0,0)");
+  grad.addColorStop(1, "rgba(0,0,0,0.65)");
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+}
+
+// ---------------- WIN CONDITION (SAFE HERE ONLY) ----------------
+function checkWin() {
+  if (won) return;
+
+  if (score >= 100) {
+    won = true;
+
+    setTimeout(() => {
+      window.location.href = "galaxy.html";
+    }, 900);
+  }
+}
+
+// ---------------- MAIN LOOP ----------------
+function loop() {
+
+  updateCore();
+
+  drawBackground();
+  drawPlatforms();
+  drawGround();
+  drawPlayer();
+  drawHUD();
+
+  checkWin();
+
+  requestAnimationFrame(loop);
+}
+
+// ---------------- START POSITION ----------------
+player.x = canvas.width / 2;
+player.y = groundY - 100;
+
+// start
+loop();
+
+window.addEventListener("resize", () => {
+  resize();
+  groundY = 1800;
+  generate();
+  player.x = canvas.width / 2;
+  player.y = groundY - 100;
+});
+</script>
+
+</body>
+</html>
