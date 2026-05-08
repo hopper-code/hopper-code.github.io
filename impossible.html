@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Hopper</title>
+<title>Im-Possible</title>
 
 <style>
   body {
     margin: 0;
     overflow: hidden;
-    background: #4ade80;
+    background: #0a0a0a;
   }
 
   canvas {
@@ -56,7 +56,7 @@ canvas.height = window.innerHeight;
 const scoreText = document.getElementById("score");
 const winText = document.getElementById("win");
 
-// PLAYER
+// ---------------- PLAYER ----------------
 const player = {
   x: 100,
   y: 0,
@@ -70,7 +70,7 @@ const player = {
 const gravity = 0.6;
 const jumpPower = -12;
 
-// ISLAND
+// ---------------- ISLAND ----------------
 const island = {
   x: canvas.width / 2 - 120,
   y: canvas.height - 140,
@@ -78,36 +78,43 @@ const island = {
   h: 25
 };
 
-// LAVA (BOTTOM ONLY)
+// ---------------- LAVA ----------------
 const lavaHeight = 70;
 
-// GAME STATE
+// ---------------- GAME STATE ----------------
 let platforms = [];
 let scrollY = 0;
+
 let score = 0;
 let highestRow = 0;
 let gameWon = false;
 
+// ---------------- CHUNK SYSTEM ----------------
+let generatedRows = 0;
+const maxRows = 1000;
+const chunkSize = 60;
+
+// ---------------- INPUT ----------------
 const keys = {};
 
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-// SAFE PLATFORM GENERATION
-function generatePlatforms() {
-  platforms = [];
+// ---------------- PLATFORM GENERATION (CHUNKED) ----------------
+function generateChunk(startRow, count) {
 
-  let y = island.y - 120;
-  let rows = 60;
+  let y = island.y - startRow * 100;
 
-  for (let i = 0; i < rows; i++) {
-    let count = 1 + Math.floor(Math.random() * 2); // 1–2 ONLY (easier)
-    let width = 140; // stable size for fairness
+  for (let i = 0; i < count; i++) {
 
-    // guarantee at least one reachable platform near center-ish
+    if (startRow + i >= maxRows) return;
+
+    let width = 140;
     let safeX = canvas.width / 2 - 70;
 
-    for (let j = 0; j < count; j++) {
+    let platformCount = 1 + Math.floor(Math.random() * 2);
+
+    for (let j = 0; j < platformCount; j++) {
       platforms.push({
         x: j === 0 ? safeX : Math.random() * (canvas.width - width),
         y: y,
@@ -116,22 +123,45 @@ function generatePlatforms() {
       });
     }
 
-    y -= 100; // tighter spacing = fair jumps
+    y -= 100;
   }
+
+  generatedRows += count;
 }
 
-generatePlatforms();
+// ---------------- INIT ----------------
+function init() {
+  platforms = [];
+  generatedRows = 0;
 
+  generateChunk(0, chunkSize);
+}
+
+init();
+
+// ---------------- RESET ----------------
 function resetPlayer() {
   player.x = island.x + 80;
   player.y = island.y - player.h;
   player.vx = 0;
   player.vy = 0;
+
   highestRow = 0;
   score = 0;
 }
 
+// ---------------- DYNAMIC GENERATION ----------------
+function maybeGenerateMore() {
+  if (generatedRows >= maxRows) return;
+
+  if (highestRow >= generatedRows - 10) {
+    generateChunk(generatedRows, chunkSize);
+  }
+}
+
+// ---------------- UPDATE ----------------
 function update() {
+
   if (gameWon) return;
 
   // movement
@@ -165,7 +195,7 @@ function update() {
     player.grounded = true;
   }
 
-  // platform collision + SCORE FIX (+2 per row)
+  // platform collision + SCORE (1 per row)
   for (let p of platforms) {
     if (
       player.x < p.x + p.w &&
@@ -182,7 +212,7 @@ function update() {
 
       if (row > highestRow) {
         highestRow = row;
-        score = highestRow * 0.1; // ✅ FIXED SCORING
+        score = highestRow;
         scoreText.innerText = score;
       }
     }
@@ -190,7 +220,7 @@ function update() {
 
   scrollY = player.y - 200;
 
-  // lava death
+  // lava
   if (player.y + player.h > canvas.height - lavaHeight) {
     resetPlayer();
   }
@@ -199,6 +229,9 @@ function update() {
   if (player.x < 0) player.x = 0;
   if (player.x + player.w > canvas.width)
     player.x = canvas.width - player.w;
+
+  // dynamic generation
+  maybeGenerateMore();
 
   // win
   if (score >= 100 && !gameWon) {
@@ -211,11 +244,17 @@ function update() {
   }
 }
 
+// ---------------- DRAW ----------------
 function draw() {
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // background
+  ctx.fillStyle = "#0a0a0a";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   // platforms
-  ctx.fillStyle = "#14532d";
+  ctx.fillStyle = "#4ade80";
   for (let p of platforms) {
     ctx.fillRect(p.x, p.y - scrollY, p.w, p.h);
   }
@@ -228,11 +267,12 @@ function draw() {
   ctx.fillStyle = "red";
   ctx.fillRect(0, canvas.height - lavaHeight, canvas.width, lavaHeight);
 
-  // player (blue)
+  // player
   ctx.fillStyle = "#1e3a8a";
   ctx.fillRect(player.x, player.y - scrollY, player.w, player.h);
 }
 
+// ---------------- LOOP ----------------
 function loop() {
   update();
   draw();
@@ -245,6 +285,7 @@ loop();
 window.addEventListener("resize", () => {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+
   island.x = canvas.width / 2 - 120;
   island.y = canvas.height - 140;
 });
