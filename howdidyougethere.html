@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>How Did You Get Here</title>
+
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #050505;
+  }
+
+  canvas {
+    display: block;
+  }
+
+  .hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-family: Arial;
+    background: rgba(255,255,255,0.7);
+    padding: 6px 10px;
+    border-radius: 8px;
+  }
+
+  .win {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 48px;
+    font-family: Arial;
+    color: white;
+    display: none;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="hud">Score: <span id="score">0</span></div>
+<div id="win" class="win">HOW DID YOU GET HERE?</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const scoreText = document.getElementById("score");
+const winText = document.getElementById("win");
+
+// ---------------- PLAYER ----------------
+const player = {
+  x: 100,
+  y: 0,
+  w: 60,
+  h: 60,
+  vx: 0,
+  vy: 0,
+  grounded: false
+};
+
+const gravity = 0.6;
+const jumpPower = -12;
+
+// ---------------- ISLAND ----------------
+const island = {
+  x: canvas.width / 2 - 120,
+  y: canvas.height - 140,
+  w: 240,
+  h: 25
+};
+
+// ---------------- LAVA ----------------
+const lavaHeight = 70;
+
+// ---------------- GAME STATE ----------------
+let platforms = [];
+let scrollY = 0;
+
+let score = 0;
+let highestRow = 0;
+let gameWon = false;
+
+const keys = {};
+
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+// ---------------- PLATFORM GENERATION (MICRO + FAIR) ----------------
+function generatePlatforms() {
+  platforms = [];
+
+  let y = island.y - 120;
+  let rows = 1000; // IMPORTANT: supports full climb system
+
+  for (let i = 0; i < rows; i++) {
+
+    // 🔬 SMALLER = HARDER
+    let width = 45;
+
+    let safeX = canvas.width / 2 - 20;
+
+    platforms.push({
+      x: safeX + (Math.random() * 120 - 60),
+      y: y,
+      w: width,
+      h: 10
+    });
+
+    y -= 110;
+  }
+}
+
+generatePlatforms();
+
+function resetPlayer() {
+  player.x = island.x + 80;
+  player.y = island.y - player.h;
+  player.vx = 0;
+  player.vy = 0;
+
+  highestRow = 0;
+  score = 0;
+}
+
+// ---------------- UPDATE ----------------
+function update() {
+  if (gameWon) return;
+
+  // movement
+  if (keys["a"] || keys["arrowleft"]) player.vx = -5;
+  else if (keys["d"] || keys["arrowright"]) player.vx = 5;
+  else player.vx *= 0.8;
+
+  // jump
+  if ((keys["w"] || keys["arrowup"] || keys[" "]) && player.grounded) {
+    player.vy = jumpPower;
+    player.grounded = false;
+  }
+
+  player.vy += gravity;
+
+  player.x += player.vx;
+  player.y += player.vy;
+
+  player.grounded = false;
+
+  // island collision
+  if (
+    player.x < island.x + island.w &&
+    player.x + player.w > island.x &&
+    player.y + player.h > island.y &&
+    player.y + player.h < island.y + island.h + 10 &&
+    player.vy >= 0
+  ) {
+    player.y = island.y - player.h;
+    player.vy = 0;
+    player.grounded = true;
+  }
+
+  // platform collision + SCORE FIX (1 PER ROW)
+  for (let p of platforms) {
+    if (
+      player.x < p.x + p.w &&
+      player.x + player.w > p.x &&
+      player.y + player.h > p.y &&
+      player.y + player.h < p.y + p.h + 10 &&
+      player.vy >= 0
+    ) {
+      player.y = p.y - player.h;
+      player.vy = 0;
+      player.grounded = true;
+
+      let row = Math.floor((island.y - p.y) / 110);
+
+      if (row > highestRow) {
+        highestRow = row;
+        score = highestRow; // ✔ FIXED: 1 per row
+        scoreText.innerText = score;
+      }
+    }
+  }
+
+  scrollY = player.y - 200;
+
+  // lava death
+  if (player.y + player.h > canvas.height - lavaHeight) {
+    resetPlayer();
+  }
+
+  // bounds
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.w > canvas.width)
+    player.x = canvas.width - player.w;
+
+  // win
+  if (score >= 100 && !gameWon) {
+    gameWon = true;
+    winText.style.display = "block";
+
+    setTimeout(() => {
+      window.location.href = "antifreeze.html";
+    }, 2000);
+  }
+}
+
+// ---------------- DRAW ----------------
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // platforms
+  ctx.fillStyle = "#14532d";
+  for (let p of platforms) {
+    ctx.fillRect(p.x, p.y - scrollY, p.w, p.h);
+  }
+
+  // island (IMPORTANT FIX: ALWAYS VISIBLE)
+  ctx.fillStyle = "#166534";
+  ctx.fillRect(island.x, island.y - scrollY, island.w, island.h);
+
+  // lava
+  ctx.fillStyle = "red";
+  ctx.fillRect(0, canvas.height - lavaHeight, canvas.width, lavaHeight);
+
+  // player
+  ctx.fillStyle = "#1e3a8a";
+  ctx.fillRect(player.x, player.y - scrollY, player.w, player.h);
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+resetPlayer();
+loop();
+
+window.addEventListener("resize", () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  island.x = canvas.width / 2 - 120;
+  island.y = canvas.height - 140;
+});
+</script>
+
+</body>
+</html>
